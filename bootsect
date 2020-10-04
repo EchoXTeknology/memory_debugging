@@ -1,0 +1,290 @@
+[bits	16]
+[org	0x0000]
+
+
+
+jmp	_glEntry
+
+
+
+STATIC_VARIABLE_00:
+	STATIC_VARIABLE_A0:
+		dq	0x0000000000000000,
+		dq	0x0000000000000000,
+	STATIC_VARIABLE_B0:
+		dq	0x0000000000000000,
+		dq	0x0000000000000000,
+		dq	0x0000000000000000,
+		dq	0x0000000000000000
+
+
+
+LITERAL_CONSTANT_01:
+	LITERAL_CONSTANT_A1:
+		db	"0x",
+	LITERAL_CONSTANT_B1:
+		dq	0x3030303030303030,
+		dq	0x3030303030303030,
+	LITERAL_CONSTANT_C1:
+		db	":[0x",
+	LITERAL_CONSTANT_D1:
+		dq	0x3030303030303030,
+		dq	0x3030303030303030,
+	LITERAL_CONSTANT_E1:
+		db	"]  :  ",				0x00
+	LITERAL_CONSTANT_F1:
+		dq	0x3030303030303030,
+		dq	0x3030303030303030,
+	LITERAL_CONSTANT_10:
+		db					0x0D, 0x0A, 0x00
+
+
+
+output16_char_mem_array:
+	pusha
+	mov	ah,	0x0E
+	mov	al,	0x00
+	mov	ch,	0x10
+	mov	cl,	0x00
+	
+	.output16_char_mem_array_loop:
+		cmp	cl,	ch
+		je	.output16_char_mem_array_complete
+		mov	al,	BYTE	[ds:si]
+		int	0x10
+		inc	si
+		inc	cl
+		jmp	.output16_char_mem_array_loop
+	
+	.output16_char_mem_array_complete:
+		mov	al,	BYTE	[ds:si]
+		or	al,	al
+		jz	.output16_char_mem_array_done
+		int	0x10
+		inc	si
+		jmp	.output16_char_mem_array_complete
+	
+	.output16_char_mem_array_done:
+		popa
+		ret
+
+
+
+output16_char_array:
+	pusha
+	mov	ah,	0x0E
+	mov	al,	0x00
+
+	.output16_char_array_loop:
+		lodsb
+		or	al,	al
+		jz	.output16_char_array_done
+		int	0x10
+		jmp	.output16_char_array_loop
+	
+	.output16_char_array_done:
+		mov	ah,	0x00
+		mov	al,	ah
+		popa
+		ret
+		
+	
+	
+translate:
+	.loop:
+		mov	al,	BYTE	[ds:si]
+		shr	al,	0x04
+		mov	[ds:di],	al
+		inc	di
+		mov	al,	BYTE	[ds:si]
+		shl	al,	0x04
+		rol	al,	0x04
+		mov	[ds:di],	al
+		inc	si
+		inc	di
+		dec	cl
+		cmp	cl,	0x00
+		jne	.loop
+		ret
+
+
+	
+convert:
+	.loop:
+		cmp	cl,	0x00
+		je	.done
+		mov	al,	BYTE	[ds:si]
+		cmp	al,	0x0A
+		je	.conversion
+		cmp	al,	0x0B
+		je	.conversion
+		cmp	al,	0x0C
+		je	.conversion
+		cmp	al,	0x0D
+		je	.conversion
+		cmp	al,	0x0E
+		je	.conversion
+		cmp	al,	0x0F
+		je	.conversion
+		add	al,	0x30
+		mov	[ds:di],	al
+		inc	si
+		inc	di
+		dec	cl
+		jmp	.loop
+	
+	.done:
+		ret
+	
+	.conversion:
+		add	al,	0x37
+		mov	[ds:di],	al
+		inc	si
+		inc	di
+		dec	cl
+		jmp	.loop
+
+
+
+
+
+
+reboot:
+	xor	ax,	ax
+	int	0x16
+	xor	ax,	ax
+	int	0x19
+
+
+
+_glEntry:
+	cli
+	mov	ax,	0x07C0
+	mov	ss,	ax
+	mov	sp,	0x1200
+	sti
+	
+	mov	ds,	ax
+	sub	ax,	0x0770
+	mov	es,	ax
+	mov	ax,	0x0000
+	mov	fs,	ax
+	mov	bx,	0x0010
+	imul	bx
+	mov	di,	0x0000
+	add	ax,	di
+	jmp	.looper
+	
+	
+	.loop:
+		xor	ax,	ax
+		int	0x16
+		mov	ax,	fs
+		add	ax,	0x0001
+		mov	fs,	ax
+		mov	bx,	0x0010
+		mul	bx
+		mov	di,	0x0000
+		mov	dh,	0x00
+		add	ax,	di
+		
+		
+		
+		.looper:			
+			rol	ax,	0x08
+			mov	si,	STATIC_VARIABLE_A0
+			mov	[ds:si+0x0006],	ax
+	
+			mov	si,	STATIC_VARIABLE_A0
+			mov	di,	STATIC_VARIABLE_B0
+			mov	cl,	0x10
+			call	translate
+	
+			mov	si,	STATIC_VARIABLE_B0
+			mov	di,	LITERAL_CONSTANT_B1
+			mov	cl,	0x10
+			call	convert
+	
+	
+	
+			mov	si,	STATIC_VARIABLE_A0
+			mov	di,	bx
+	
+			mov	eax,	DWORD	[fs:di+0x0000]
+			mov	[ds:si+0x0000],	eax
+			mov	eax,	DWORD	[fs:di+0x0004]
+			mov	[ds:si+0x0004],	eax
+			mov	eax,	DWORD	[fs:di+0x0008]
+			mov	[ds:si+0x0008],	eax
+			mov	eax,	DWORD	[fs:di+0x000C]
+			mov	[ds:si+0x000C],	eax
+			mov	si,	STATIC_VARIABLE_A0
+			mov	di,	STATIC_VARIABLE_B0
+			mov	cl,	0x10
+			call	translate
+	
+			mov	si,	STATIC_VARIABLE_B0
+			mov	di,	LITERAL_CONSTANT_D1
+			mov	cl,	0x10
+			call	convert
+	
+			mov	di,	bx
+			mov	si,	LITERAL_CONSTANT_F1
+			mov	eax,	DWORD	[fs:di+0x0000]
+			mov	[ds:si+0x0000],	eax
+			mov	eax,	DWORD	[fs:di+0x0004]
+			mov	[ds:si+0x0004],	eax
+			mov	eax,	DWORD	[fs:di+0x0008]
+			mov	[ds:si+0x0008],	eax
+			mov	eax,	DWORD	[fs:di+0x000C]
+			mov	[ds:si+0x000C],	eax
+	
+	
+			mov	si,	LITERAL_CONSTANT_01
+			call	output16_char_array
+			mov	si,	LITERAL_CONSTANT_F1
+			call	output16_char_mem_array
+			
+			
+			
+			mov	si,	STATIC_VARIABLE_00
+			mov	cl,	0x30
+			
+			.clear:
+				mov	al,	0x00
+				mov	[ds:si],	al
+				inc	si
+				dec	cl
+				cmp	cl,	0x00
+				jne	.clear
+				
+			
+			jmp	.loop
+	
+
+
+;==============================================================================
+	;.memory16_gather_address_content_loop:
+	;	mov	eax,	DWORD	[fs:di]
+	;	mov	[ds:si],	eax
+	;	add	si,	0x0004
+	;	add	di,	0x0004
+	;	cmp	di,	0x0020
+	;	jne	.memory16_gather_address_content_loop
+	
+	;mov	si,	STATIC_VARIABLE_A0
+	
+	;.memory16_gather_address_content_buffer_loop:
+	;	mov	eax,	DWORD	[fs:di]
+	;	mov	[ds:si],	eax
+	;	add	si,	0x0004
+	;	add	di,	0x0004
+	;	cmp	di,	0x0020
+	;	jne	.memory16_gather_address_content_buffer_loop
+;==============================================================================
+
+
+
+times	510 - ( $ - $$ )	db	0x00
+dw	0xAA55
+
